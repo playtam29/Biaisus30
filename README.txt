@@ -1,1 +1,1 @@
-Version avec filtre session Paris: toute journée, Londres, overlap, US.
+Version multi-actifs: US30, GER40, XAUUSD, EURUSD. Clé FRED masquée, stockage local, filtres session Paris.

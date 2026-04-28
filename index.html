@@ -3,38 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>US30 Daily Bias</title>
+  <title>Macro Bias Multi-Asset</title>
   <style>
     body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:18px}
     .card{max-width:980px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:18px}
     input,select,button,a{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569;box-sizing:border-box}
     input,select{width:100%;background:#0b1220;color:#fff;margin:8px 0 12px}
     button,a{display:inline-block;background:#38bdf8;color:#082f49;border:0;font-weight:700;cursor:pointer;margin-right:8px;margin-bottom:8px;text-decoration:none}
-    .muted{color:#94a3b8}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+    .muted{color:#94a3b8}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
     .stat,.panel{background:#0b1220;border:1px solid #334155;border-radius:12px;padding:12px}
-    .label{font-size:12px;color:#94a3b8;margin-bottom:6px}
-    .value{font-size:20px;font-weight:700}
-    .bias-bull{color:#22c55e}
-    .bias-bear{color:#ef4444}
-    .bias-neutral{color:#facc15}
-    .session-on{color:#22c55e}
-    .session-off{color:#f97316}
+    .label{font-size:12px;color:#94a3b8;margin-bottom:6px}.value{font-size:20px;font-weight:700}
+    .bull{color:#22c55e}.bear{color:#ef4444}.neutral{color:#facc15}.session-on{color:#22c55e}.session-off{color:#f97316}
     table{width:100%;border-collapse:collapse;background:#020617;border-radius:12px;overflow:hidden}
-    th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;font-size:14px;vertical-align:top}
-    th{color:#93c5fd}
-    .full{grid-column:1 / -1}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
+    th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;font-size:14px;vertical-align:top} th{color:#93c5fd}
+    .full{grid-column:1 / -1}.row{display:flex;gap:8px;flex-wrap:wrap}
     @media (max-width:700px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>US30 Daily Bias</h1>
-    <p class="muted">Version avec clé masquée, stockage local et filtre session Paris.</p>
+    <h1>Macro Bias Multi-Asset</h1>
+    <p class="muted">US30, GER40, XAUUSD et EURUSD avec clé FRED masquée, stockage local et filtre session Paris.</p>
 
     <label for="apiKey">Clé API FRED</label>
     <input id="apiKey" type="password" placeholder="Colle ta clé FRED ici" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+    <label for="asset">Actif</label>
+    <select id="asset">
+      <option value="US30">US30</option>
+      <option value="GER40">GER40</option>
+      <option value="XAUUSD">XAUUSD</option>
+      <option value="EURUSD">EURUSD</option>
+    </select>
 
     <label for="sessionMode">Filtre session (heure de Paris)</label>
     <select id="sessionMode">
@@ -58,8 +58,10 @@
 
   <script>
     const STORAGE_KEY = 'fred_api_key';
-    const SESSION_KEY = 'us30_session_mode';
+    const SESSION_KEY = 'macro_bias_session_mode';
+    const ASSET_KEY = 'macro_bias_asset';
     const apiKeyEl = document.getElementById('apiKey');
+    const assetEl = document.getElementById('asset');
     const sessionModeEl = document.getElementById('sessionMode');
     const loadBtn = document.getElementById('loadBtn');
     const saveBtn = document.getElementById('saveBtn');
@@ -70,84 +72,56 @@
 
     function esc(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
     function card(label, value, cls=''){ return `<div class="stat"><div class="label">${esc(label)}</div><div class="value ${cls}">${esc(value)}</div></div>`; }
-    function loadSavedKey(){ const saved = localStorage.getItem(STORAGE_KEY); if(saved) apiKeyEl.value = saved; }
-    function loadSavedSession(){ const saved = localStorage.getItem(SESSION_KEY); if(saved) sessionModeEl.value = saved; }
-    function saveKey(){
-      const key = apiKeyEl.value.trim();
-      if(!key){ summary.innerHTML = card('Clé','Aucune clé à enregistrer'); return; }
-      localStorage.setItem(STORAGE_KEY, key);
-      summary.innerHTML = card('Clé','Clé enregistrée localement');
+    function loadSaved(){
+      const key = localStorage.getItem(STORAGE_KEY); if(key) apiKeyEl.value = key;
+      const mode = localStorage.getItem(SESSION_KEY); if(mode) sessionModeEl.value = mode;
+      const asset = localStorage.getItem(ASSET_KEY); if(asset) assetEl.value = asset;
     }
-    function clearKey(){
-      localStorage.removeItem(STORAGE_KEY);
-      apiKeyEl.value = '';
-      summary.innerHTML = card('Clé','Clé effacée du stockage local');
-      details.innerHTML = '';
-    }
+    function saveKey(){ const key = apiKeyEl.value.trim(); if(!key){ summary.innerHTML = card('Clé','Aucune clé à enregistrer'); return; } localStorage.setItem(STORAGE_KEY, key); summary.innerHTML = card('Clé','Clé enregistrée localement'); }
+    function clearKey(){ localStorage.removeItem(STORAGE_KEY); apiKeyEl.value=''; summary.innerHTML = card('Clé','Clé effacée du stockage local'); details.innerHTML=''; }
     function toggleKey(){ apiKeyEl.type = apiKeyEl.type === 'password' ? 'text' : 'password'; }
-    function getParisMinutes(){
-      const s = new Intl.DateTimeFormat('fr-FR',{ timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date());
-      const parts = s.split(':');
-      return parseInt(parts[0],10)*60 + parseInt(parts[1],10);
-    }
-    function getParisClock(){
-      return new Intl.DateTimeFormat('fr-FR',{ timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date());
-    }
+    function getParisMinutes(){ const s = new Intl.DateTimeFormat('fr-FR',{ timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date()); const p=s.split(':'); return parseInt(p[0],10)*60+parseInt(p[1],10); }
+    function getParisClock(){ return new Intl.DateTimeFormat('fr-FR',{ timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date()); }
     function sessionInfo(mode){
-      const now = getParisMinutes();
-      const clock = getParisClock();
-      const defs = {
-        all: { label:'Toute journée', start:0, end:1439, always:true },
-        london: { label:'Londres', start:9*60, end:17*60, text:'09:00-17:00' },
-        overlap: { label:'Overlap Londres-US', start:14*60, end:17*60, text:'14:00-17:00' },
-        us: { label:'Session US', start:15*60+30, end:22*60, text:'15:30-22:00' }
-      };
-      const d = defs[mode] || defs.all;
-      const active = d.always ? true : now >= d.start && now <= d.end;
-      const range = d.always ? '00:00-23:59' : d.text;
-      return { label:d.label, active, range, clock, status: active ? 'Session active' : 'Hors session' };
+      const now = getParisMinutes(); const clock = getParisClock();
+      const defs = { all:{label:'Toute journée',start:0,end:1439,always:true}, london:{label:'Londres',start:540,end:1020,text:'09:00-17:00'}, overlap:{label:'Overlap Londres-US',start:840,end:1020,text:'14:00-17:00'}, us:{label:'Session US',start:930,end:1320,text:'15:30-22:00'} };
+      const d=defs[mode]||defs.all; const active=d.always?true:(now>=d.start&&now<=d.end); const range=d.always?'00:00-23:59':d.text;
+      return { label:d.label, active, range, clock, status: active?'Session active':'Hors session' };
     }
     async function loadData(){
-      const apiKey = apiKeyEl.value.trim();
-      const sessionMode = sessionModeEl.value;
-      localStorage.setItem(SESSION_KEY, sessionMode);
+      const apiKey = apiKeyEl.value.trim(); const sessionMode = sessionModeEl.value; const asset = assetEl.value;
+      localStorage.setItem(SESSION_KEY, sessionMode); localStorage.setItem(ASSET_KEY, asset);
       if(!apiKey){ summary.innerHTML = card('Erreur','Ajoute ta clé FRED'); details.innerHTML=''; return; }
       localStorage.setItem(STORAGE_KEY, apiKey);
       const sInfo = sessionInfo(sessionMode);
-      summary.innerHTML = [card('Statut','Chargement...'), card('Heure Paris', sInfo.clock), card('Filtre', sInfo.label), card('Session', sInfo.status, sInfo.active ? 'session-on' : 'session-off')].join('');
+      summary.innerHTML = [card('Statut','Chargement...'), card('Actif',asset), card('Filtre',sInfo.label), card('Heure Paris',sInfo.clock)].join('');
       details.innerHTML = '';
       try{
-        const res = await fetch(`/.netlify/functions/us30-bias?apiKey=${encodeURIComponent(apiKey)}&ts=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`/.netlify/functions/asset-bias?apiKey=${encodeURIComponent(apiKey)}&asset=${encodeURIComponent(asset)}&ts=${Date.now()}`, { cache:'no-store' });
         const data = await res.json();
         if(!res.ok){ summary.innerHTML = card('Erreur', data.error || ('HTTP ' + res.status)); return; }
-        let biasClass = 'bias-neutral';
-        if(data.score >= 2) biasClass = 'bias-bull'; else if(data.score <= -2) biasClass = 'bias-bear';
-        const displayBias = sInfo.active ? data.bias_label : `${data.bias_label} (hors session)`;
+        let cls = 'neutral'; if(data.score >= 2) cls='bull'; else if(data.score <= -2) cls='bear';
+        const shownBias = sInfo.active ? data.bias_label : `${data.bias_label} (hors session)`;
         summary.innerHTML = [
-          card('Biais US30', displayBias, sInfo.active ? biasClass : 'session-off'),
+          card('Actif', data.asset),
+          card('Biais', shownBias, sInfo.active ? cls : 'session-off'),
           card('Score macro', data.score),
           card('Filtre', `${sInfo.label} ${sInfo.range}`),
           card('Heure Paris', sInfo.clock),
           card('Session', sInfo.status, sInfo.active ? 'session-on' : 'session-off'),
-          card('Inflation', data.latest.CPIAUCSL?.value ?? 'n/a'),
-          card('Taux Fed', data.latest.FEDFUNDS?.value ?? 'n/a'),
-          card('10 ans US', data.latest.DGS10?.value ?? 'n/a'),
-          card('Chômage', data.latest.UNRATE?.value ?? 'n/a')
+          card('Fed Funds', data.latest.FEDFUNDS?.value ?? 'n/a'),
+          card('US 10Y', data.latest.DGS10?.value ?? 'n/a'),
+          card('CPI US', data.latest.CPIAUCSL?.value ?? 'n/a'),
+          card('EURUSD', data.latest.DEXUSEU?.value ?? 'n/a')
         ].join('');
         const rows = data.breakdown.map(r => `<tr><td>${esc(r.indicator)}</td><td>${esc(r.signal)}</td><td>${esc(r.impact)}</td><td>${esc(r.points)}</td></tr>`).join('');
-        details.innerHTML = `<div class="grid"><div class="panel full"><div class="label">Lecture</div><div>${esc(data.explanation)}</div></div><div class="panel full"><div class="label">Lecture session</div><div>Mode choisi: ${esc(sInfo.label)} (${esc(sInfo.range)} heure de Paris). Statut actuel: ${esc(sInfo.status)} à ${esc(sInfo.clock)}.</div></div><div class="panel full"><table><thead><tr><th>Indicateur</th><th>Signal</th><th>Impact US30</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-      }catch(err){
-        summary.innerHTML = card('Erreur', err.message || 'Erreur inconnue');
-        details.innerHTML = '';
-      }
+        details.innerHTML = `<div class="grid"><div class="panel full"><div class="label">Lecture</div><div>${esc(data.explanation)}</div></div><div class="panel full"><div class="label">Session</div><div>Mode choisi: ${esc(sInfo.label)} (${esc(sInfo.range)} heure de Paris). Statut actuel: ${esc(sInfo.status)} à ${esc(sInfo.clock)}.</div></div><div class="panel full"><div class="label">Modèle</div><div>${esc(data.model_note)}</div></div><div class="panel full"><table><thead><tr><th>Indicateur</th><th>Signal</th><th>Impact</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      }catch(err){ summary.innerHTML = card('Erreur', err.message || 'Erreur inconnue'); details.innerHTML=''; }
     }
-    loadSavedKey();
-    loadSavedSession();
-    loadBtn.addEventListener('click', loadData);
-    saveBtn.addEventListener('click', saveKey);
-    clearBtn.addEventListener('click', clearKey);
-    toggleBtn.addEventListener('click', toggleKey);
+    loadSaved();
+    loadBtn.addEventListener('click', loadData); saveBtn.addEventListener('click', saveKey); clearBtn.addEventListener('click', clearKey); toggleBtn.addEventListener('click', toggleKey);
     sessionModeEl.addEventListener('change', ()=> localStorage.setItem(SESSION_KEY, sessionModeEl.value));
+    assetEl.addEventListener('change', ()=> localStorage.setItem(ASSET_KEY, assetEl.value));
   </script>
 </body>
 </html>
