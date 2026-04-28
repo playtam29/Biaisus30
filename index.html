@@ -17,58 +17,49 @@
 <body>
   <div class="card">
     <h1>Test API Trading Economics</h1>
-    <p class="muted">Version debug v4.</p>
+    <p class="muted">Version debug v5 ultra simple.</p>
     <input id="apiKey" type="text" placeholder="Colle ta clé API ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-    <button id="healthBtn" type="button">Tester la fonction</button>
-    <button id="loadBtn" type="button">Charger les données</button>
+    <button type="button" onclick="testHealth()">Tester la fonction</button>
+    <button type="button" onclick="loadData()">Charger les données</button>
     <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
-    <pre id="output">JS chargé v4. En attente...</pre>
+    <pre id="output">JS chargé v5. En attente...</pre>
   </div>
 
   <script>
-    window.onerror = function(msg, src, line, col, err){
-      document.getElementById('output').textContent = 'Erreur JS: ' + msg + ' @' + line + ':' + col;
-    };
-
-    const output = document.getElementById('output');
-    const apiKeyInput = document.getElementById('apiKey');
-    const healthBtn = document.getElementById('healthBtn');
-    const loadBtn = document.getElementById('loadBtn');
-
-    healthBtn.addEventListener('click', function(){ testHealth(); });
-    loadBtn.addEventListener('click', function(){ loadData(); });
+    function setOut(msg){ document.getElementById('output').textContent = msg; }
+    window.onerror = function(msg, src, line, col){ setOut('Erreur JS: ' + msg + ' @' + line + ':' + col); };
 
     async function testHealth(){
-      output.textContent = 'Test fonction...';
+      setOut('Bouton health cliqué');
       try {
-        const response = await fetch('/.netlify/functions/health?ts=' + Date.now(), { cache: 'no-store' });
-        const txt = await response.text();
-        output.textContent = 'HTTP ' + response.status + '
-' + txt;
-      } catch (error) {
-        output.textContent = 'Erreur health: ' + error.message;
+        const r = await fetch('/.netlify/functions/health?ts=' + Date.now(), { cache: 'no-store' });
+        const t = await r.text();
+        setOut('HTTP ' + r.status + '
+' + t);
+      } catch (e) {
+        setOut('Erreur health: ' + e.message);
       }
     }
 
     async function loadData(){
-      output.textContent = 'Clic détecté...';
-      const apiKey = (apiKeyInput.value || '').trim();
-      if (!apiKey) {
-        output.textContent = 'Ajoute d'abord ta clé API.';
-        return;
-      }
-      output.textContent = 'Chargement...';
+      setOut('Bouton load cliqué');
       try {
-        const response = await fetch('/.netlify/functions/te-calendar?ts=' + Date.now(), {
+        const apiKey = (document.getElementById('apiKey').value || '').trim();
+        if (!apiKey) {
+          setOut('Ajoute d'abord ta clé API.');
+          return;
+        }
+        setOut('Chargement...');
+        const r = await fetch('/.netlify/functions/te-calendar?ts=' + Date.now(), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ apiKey: apiKey })
         });
-        const txt = await response.text();
-        output.textContent = 'HTTP ' + response.status + '
-' + txt;
-      } catch (error) {
-        output.textContent = 'Erreur : ' + error.message;
+        const t = await r.text();
+        setOut('HTTP ' + r.status + '
+' + t);
+      } catch (e) {
+        setOut('Erreur load: ' + e.message);
       }
     }
   </script>
