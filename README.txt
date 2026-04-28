@@ -1,1 +1,1 @@
-Version multi-actifs: US30, GER40, XAUUSD, EURUSD. Clé FRED masquée, stockage local, filtres session Paris.
+Version multi-actifs: US30, US100, GER40, XAUUSD, EURUSD. Clé FRED masquée, stockage local, filtres session Paris.
