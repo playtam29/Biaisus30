@@ -22,19 +22,22 @@
     th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;font-size:14px;vertical-align:top}
     th{color:#93c5fd}
     .full{grid-column:1 / -1}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
     @media (max-width:700px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="card">
     <h1>US30 Daily Bias</h1>
-    <p class="muted">Version gratuite basée sur FRED. Elle estime un biais macro journalier pour le US30.</p>
+    <p class="muted">Version avec stockage local de la clé FRED.</p>
 
     <label for="apiKey">Clé API FRED</label>
     <input id="apiKey" type="text" placeholder="Colle ta clé FRED ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
-    <div>
+    <div class="row">
       <button id="loadBtn" type="button">Évaluer le biais</button>
+      <button id="saveBtn" type="button">Enregistrer la clé</button>
+      <button id="clearBtn" type="button">Effacer la clé</button>
       <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
     </div>
 
@@ -43,8 +46,11 @@
   </div>
 
   <script>
+    const STORAGE_KEY = 'fred_api_key';
     const apiKeyEl = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
     const summary = document.getElementById('summary');
     const details = document.getElementById('details');
 
@@ -54,9 +60,28 @@
     function card(label, value, cls=''){
       return `<div class="stat"><div class="label">${esc(label)}</div><div class="value ${cls}">${esc(value)}</div></div>`;
     }
-    function num(v){ const n=parseFloat(v); return Number.isFinite(n)?n:null; }
-    function diff(a,b){ if(a===null||b===null) return null; return a-b; }
-    function fmt(n){ return n===null ? 'n/a' : (Math.round(n*100)/100).toString(); }
+
+    function loadSavedKey(){
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if(saved) apiKeyEl.value = saved;
+    }
+
+    function saveKey(){
+      const key = apiKeyEl.value.trim();
+      if(!key){
+        summary.innerHTML = card('Clé','Aucune clé à enregistrer');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, key);
+      summary.innerHTML = card('Clé','Clé enregistrée localement');
+    }
+
+    function clearKey(){
+      localStorage.removeItem(STORAGE_KEY);
+      apiKeyEl.value = '';
+      summary.innerHTML = card('Clé','Clé effacée du stockage local');
+      details.innerHTML = '';
+    }
 
     async function loadData(){
       const apiKey = apiKeyEl.value.trim();
@@ -65,6 +90,7 @@
         details.innerHTML = '';
         return;
       }
+      localStorage.setItem(STORAGE_KEY, apiKey);
       summary.innerHTML = card('Statut','Chargement...');
       details.innerHTML = '';
       try{
@@ -89,18 +115,17 @@
         ].join('');
 
         const rows = data.breakdown.map(r => `<tr><td>${esc(r.indicator)}</td><td>${esc(r.signal)}</td><td>${esc(r.impact)}</td><td>${esc(r.points)}</td></tr>`).join('');
-        const expl = `<div class="grid">
-          <div class="panel full"><div class="label">Lecture</div><div>${esc(data.explanation)}</div></div>
-          <div class="panel full"><table><thead><tr><th>Indicateur</th><th>Signal</th><th>Impact US30</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div>
-        </div>`;
-        details.innerHTML = expl;
+        details.innerHTML = `<div class="grid"><div class="panel full"><div class="label">Lecture</div><div>${esc(data.explanation)}</div></div><div class="panel full"><table><thead><tr><th>Indicateur</th><th>Signal</th><th>Impact US30</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
       }catch(err){
         summary.innerHTML = card('Erreur', err.message || 'Erreur inconnue');
         details.innerHTML = '';
       }
     }
 
+    loadSavedKey();
     loadBtn.addEventListener('click', loadData);
+    saveBtn.addEventListener('click', saveKey);
+    clearBtn.addEventListener('click', clearKey);
   </script>
 </body>
 </html>
