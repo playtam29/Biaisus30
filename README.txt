@@ -1,1 +1,1 @@
-Version avec clé FRED masquée dans le champ.
+Version avec filtre session Paris: toute journée, Londres, overlap, US.
