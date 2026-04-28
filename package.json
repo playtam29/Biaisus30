@@ -1,0 +1,10 @@
+{
+  "name": "tradingeconomics-netlify-function-pack",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static front + Netlify Functions",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod --dir . --functions netlify/functions"
+  }
+}

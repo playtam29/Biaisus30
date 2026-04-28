@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test API Trading Economics</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:24px}
+    .card{max-width:920px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
+    input,button{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569}
+    input{width:100%;background:#0b1220;color:#fff;margin:10px 0 14px}
+    button{background:#38bdf8;color:#082f49;border:0;font-weight:700;cursor:pointer;margin-right:8px;margin-bottom:8px}
+    pre{background:#020617;color:#cbd5e1;padding:14px;border-radius:12px;overflow:auto;white-space:pre-wrap;min-height:120px}
+    .muted{color:#94a3b8}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Test API Trading Economics</h1>
+    <p class="muted">Cette version passe par une Netlify Function.</p>
+    <input id="apiKey" type="password" placeholder="Colle ta clé API ici" autocomplete="off" />
+    <button id="healthBtn">Tester la fonction</button>
+    <button id="loadBtn">Charger les données</button>
+    <pre id="output">En attente...</pre>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const loadBtn = document.getElementById('loadBtn');
+    const healthBtn = document.getElementById('healthBtn');
+    const apiKeyInput = document.getElementById('apiKey');
+
+    healthBtn.addEventListener('click', async () => {
+      output.textContent = 'Test fonction...';
+      try {
+        const response = await fetch('/.netlify/functions/health');
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        output.textContent = 'Erreur health: ' + error.message;
+      }
+    });
+
+    loadBtn.addEventListener('click', async () => {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        output.textContent = 'Ajoute d'abord ta clé API.';
+        return;
+      }
+
+      output.textContent = 'Chargement...';
+
+      try {
+        const response = await fetch('/.netlify/functions/te-calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        output.textContent = 'Erreur : ' + error.message;
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>
