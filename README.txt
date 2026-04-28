@@ -1,1 +1,1 @@
-Version multi-actifs: US30, US100, GER40, XAUUSD, EURUSD. Clé FRED masquée, stockage local, filtres session Paris.
+Version multi-actifs avec option Tous. Les boutons Enregistrer/Effacer/Afficher-Masquer sont plus petits et le bouton Ouvrir health a été retiré de l’interface.
