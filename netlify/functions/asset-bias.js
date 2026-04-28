@@ -43,6 +43,21 @@ function scoreUS30(map) {
   return { score, breakdown, model_note: 'Modèle US30 basé sur taux, inflation, emploi et stress macro US.' };
 }
 
+function scoreUS100(map) {
+  let score = 0; const breakdown = [];
+  const fed0 = toNum(map.FEDFUNDS[0]?.value), fed1 = toNum(map.FEDFUNDS[1]?.value);
+  if (fed0 !== null && fed1 !== null) fed0 < fed1 ? (score += 3, pushRule(breakdown,'Fed Funds','En baisse','Très positif pour le US100 sensible aux taux',3)) : fed0 > fed1 ? (score -= 3, pushRule(breakdown,'Fed Funds','En hausse','Très négatif pour le US100 sensible aux taux',-3)) : pushRule(breakdown,'Fed Funds','Stable','Neutre',0);
+  const y0 = toNum(map.DGS10[0]?.value), y1 = toNum(map.DGS10[1]?.value);
+  if (y0 !== null && y1 !== null) y0 < y1 ? (score += 2, pushRule(breakdown,'US 10Y','Rendement en baisse','Soulage fortement les valeurs de croissance',2)) : y0 > y1 ? (score -= 2, pushRule(breakdown,'US 10Y','Rendement en hausse','Pèse fortement sur les valorisations tech',-2)) : pushRule(breakdown,'US 10Y','Stable','Neutre',0);
+  const c0 = toNum(map.CPIAUCSL[0]?.value), c1 = toNum(map.CPIAUCSL[1]?.value);
+  if (c0 !== null && c1 !== null) c0 < c1 ? (score += 2, pushRule(breakdown,'Inflation CPI','Ralentit','Très positif pour le US100',2)) : c0 > c1 ? (score -= 2, pushRule(breakdown,'Inflation CPI','Accélère','Très négatif pour le US100',-2)) : pushRule(breakdown,'Inflation CPI','Stable','Neutre',0);
+  const p0 = toNum(map.PAYEMS[0]?.value), p1 = toNum(map.PAYEMS[1]?.value);
+  if (p0 !== null && p1 !== null) p0 < p1 ? (score += 1, pushRule(breakdown,'Payrolls','En baisse','Peut aider le narratif de baisse de taux',1)) : p0 > p1 ? (score -= 1, pushRule(breakdown,'Payrolls','En hausse','Peut retarder la détente monétaire',-1)) : pushRule(breakdown,'Payrolls','Stable','Neutre',0);
+  const s0 = toNum(map.SAHMREALTIME[0]?.value), s1 = toNum(map.SAHMREALTIME[1]?.value);
+  if (s0 !== null && s1 !== null) s0 > s1 ? (score -= 1, pushRule(breakdown,'Sahm Rule','Monte','Stress récessionniste',-1)) : s0 < s1 ? (score += 1, pushRule(breakdown,'Sahm Rule','Baisse','Moins de stress macro',1)) : pushRule(breakdown,'Sahm Rule','Stable','Neutre',0);
+  return { score, breakdown, model_note: 'Modèle US100 plus sensible aux taux et aux rendements que le modèle US30.' };
+}
+
 function scoreGER40(map) {
   let score = 0; const breakdown = [];
   const fx0 = toNum(map.DEXUSEU[0]?.value), fx1 = toNum(map.DEXUSEU[1]?.value);
@@ -96,7 +111,7 @@ exports.handler = async (event) => {
     const apiKey = (q.apiKey || '').trim();
     const asset = (q.asset || 'US30').trim().toUpperCase();
     if (!apiKey) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'API key FRED manquante' }) };
-    if (!['US30','GER40','XAUUSD','EURUSD'].includes(asset)) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Actif non supporté' }) };
+    if (!['US30','US100','GER40','XAUUSD','EURUSD'].includes(asset)) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Actif non supporté' }) };
 
     const ids = Object.keys(COMMON_SERIES);
     const entries = await Promise.all(ids.map(async id => [id, await getSeries(apiKey, id, 3)]));
@@ -105,6 +120,7 @@ exports.handler = async (event) => {
     ids.forEach(id => { latest[id] = map[id][0] ? { date: map[id][0].date, value: map[id][0].value } : null; });
 
     let result = scoreUS30(map);
+    if (asset === 'US100') result = scoreUS100(map);
     if (asset === 'GER40') result = scoreGER40(map);
     if (asset === 'XAUUSD') result = scoreXAUUSD(map);
     if (asset === 'EURUSD') result = scoreEURUSD(map);
