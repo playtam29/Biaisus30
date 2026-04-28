@@ -29,15 +29,16 @@
 <body>
   <div class="card">
     <h1>US30 Daily Bias</h1>
-    <p class="muted">Version avec stockage local de la clé FRED.</p>
+    <p class="muted">Version avec stockage local de la clé FRED masquée à l'écran.</p>
 
     <label for="apiKey">Clé API FRED</label>
-    <input id="apiKey" type="text" placeholder="Colle ta clé FRED ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <input id="apiKey" type="password" placeholder="Colle ta clé FRED ici" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
     <div class="row">
       <button id="loadBtn" type="button">Évaluer le biais</button>
       <button id="saveBtn" type="button">Enregistrer la clé</button>
       <button id="clearBtn" type="button">Effacer la clé</button>
+      <button id="toggleBtn" type="button">Afficher / masquer</button>
       <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
     </div>
 
@@ -51,6 +52,7 @@
     const loadBtn = document.getElementById('loadBtn');
     const saveBtn = document.getElementById('saveBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const toggleBtn = document.getElementById('toggleBtn');
     const summary = document.getElementById('summary');
     const details = document.getElementById('details');
 
@@ -60,12 +62,10 @@
     function card(label, value, cls=''){
       return `<div class="stat"><div class="label">${esc(label)}</div><div class="value ${cls}">${esc(value)}</div></div>`;
     }
-
     function loadSavedKey(){
       const saved = localStorage.getItem(STORAGE_KEY);
       if(saved) apiKeyEl.value = saved;
     }
-
     function saveKey(){
       const key = apiKeyEl.value.trim();
       if(!key){
@@ -75,14 +75,15 @@
       localStorage.setItem(STORAGE_KEY, key);
       summary.innerHTML = card('Clé','Clé enregistrée localement');
     }
-
     function clearKey(){
       localStorage.removeItem(STORAGE_KEY);
       apiKeyEl.value = '';
       summary.innerHTML = card('Clé','Clé effacée du stockage local');
       details.innerHTML = '';
     }
-
+    function toggleKey(){
+      apiKeyEl.type = apiKeyEl.type === 'password' ? 'text' : 'password';
+    }
     async function loadData(){
       const apiKey = apiKeyEl.value.trim();
       if(!apiKey){
@@ -100,11 +101,9 @@
           summary.innerHTML = card('Erreur', data.error || ('HTTP ' + res.status));
           return;
         }
-
         let biasClass = 'bias-neutral';
         if(data.score >= 2) biasClass = 'bias-bull';
         else if(data.score <= -2) biasClass = 'bias-bear';
-
         summary.innerHTML = [
           card('Biais US30', data.bias_label, biasClass),
           card('Score macro', data.score),
@@ -113,7 +112,6 @@
           card('10 ans US', data.latest.DGS10?.value ?? 'n/a'),
           card('Chômage', data.latest.UNRATE?.value ?? 'n/a')
         ].join('');
-
         const rows = data.breakdown.map(r => `<tr><td>${esc(r.indicator)}</td><td>${esc(r.signal)}</td><td>${esc(r.impact)}</td><td>${esc(r.points)}</td></tr>`).join('');
         details.innerHTML = `<div class="grid"><div class="panel full"><div class="label">Lecture</div><div>${esc(data.explanation)}</div></div><div class="panel full"><table><thead><tr><th>Indicateur</th><th>Signal</th><th>Impact US30</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
       }catch(err){
@@ -121,11 +119,11 @@
         details.innerHTML = '';
       }
     }
-
     loadSavedKey();
     loadBtn.addEventListener('click', loadData);
     saveBtn.addEventListener('click', saveKey);
     clearBtn.addEventListener('click', clearKey);
+    toggleBtn.addEventListener('click', toggleKey);
   </script>
 </body>
 </html>

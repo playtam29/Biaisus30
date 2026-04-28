@@ -1,1 +1,1 @@
-Version avec stockage local localStorage de la clé FRED.
+Version avec clé FRED masquée dans le champ.
