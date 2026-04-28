@@ -1,5 +1,5 @@
 exports.handler = async () => ({
   statusCode: 200,
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  body: JSON.stringify({ ok: true, function: 'health', app: 'Macro Bias Multi-Asset', version: 'v3-us100' })
+  body: JSON.stringify({ ok: true, function: 'health', app: 'Macro Bias Multi-Asset', version: 'v4-all-assets-table' })
 });

@@ -7,6 +7,7 @@ const COMMON_SERIES = {
   SAHMREALTIME: 'Sahm Rule',
   DEXUSEU: 'EURUSD spot proxy'
 };
+const ALL_ASSETS = ['US30','US100','GER40','XAUUSD','EURUSD'];
 
 async function getSeries(apiKey, id, limit = 3) {
   const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${encodeURIComponent(id)}&api_key=${encodeURIComponent(apiKey)}&file_type=json&sort_order=desc&limit=${limit}`;
@@ -16,15 +17,8 @@ async function getSeries(apiKey, id, limit = 3) {
   const data = JSON.parse(txt);
   return Array.isArray(data.observations) ? data.observations : [];
 }
-
-function toNum(v) {
-  const n = parseFloat(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function pushRule(breakdown, indicator, signal, impact, points) {
-  breakdown.push({ indicator, signal, impact, points: points > 0 ? `+${points}` : String(points) });
-}
+function toNum(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : null; }
+function pushRule(breakdown, indicator, signal, impact, points) { breakdown.push({ indicator, signal, impact, points: points > 0 ? `+${points}` : String(points) }); }
 
 function scoreUS30(map) {
   let score = 0; const breakdown = [];
@@ -42,7 +36,6 @@ function scoreUS30(map) {
   if (s0 !== null && s1 !== null) s0 > s1 ? (score -= 1, pushRule(breakdown,'Sahm Rule','Monte','Stress récessionniste',-1)) : s0 < s1 ? (score += 1, pushRule(breakdown,'Sahm Rule','Baisse','Moins de stress macro',1)) : pushRule(breakdown,'Sahm Rule','Stable','Neutre',0);
   return { score, breakdown, model_note: 'Modèle US30 basé sur taux, inflation, emploi et stress macro US.' };
 }
-
 function scoreUS100(map) {
   let score = 0; const breakdown = [];
   const fed0 = toNum(map.FEDFUNDS[0]?.value), fed1 = toNum(map.FEDFUNDS[1]?.value);
@@ -57,7 +50,6 @@ function scoreUS100(map) {
   if (s0 !== null && s1 !== null) s0 > s1 ? (score -= 1, pushRule(breakdown,'Sahm Rule','Monte','Stress récessionniste',-1)) : s0 < s1 ? (score += 1, pushRule(breakdown,'Sahm Rule','Baisse','Moins de stress macro',1)) : pushRule(breakdown,'Sahm Rule','Stable','Neutre',0);
   return { score, breakdown, model_note: 'Modèle US100 plus sensible aux taux et aux rendements que le modèle US30.' };
 }
-
 function scoreGER40(map) {
   let score = 0; const breakdown = [];
   const fx0 = toNum(map.DEXUSEU[0]?.value), fx1 = toNum(map.DEXUSEU[1]?.value);
@@ -74,7 +66,6 @@ function scoreGER40(map) {
   if (s0 !== null && s1 !== null) s0 > s1 ? (score -= 1, pushRule(breakdown,'Sahm Rule','Monte','Stress récessionniste mondial',-1)) : s0 < s1 ? (score += 1, pushRule(breakdown,'Sahm Rule','Baisse','Moins de stress macro',1)) : pushRule(breakdown,'Sahm Rule','Stable','Neutre',0);
   return { score, breakdown, model_note: 'Modèle GER40 par proxies macro mondiaux et EURUSD, pas par données locales DAX directes.' };
 }
-
 function scoreXAUUSD(map) {
   let score = 0; const breakdown = [];
   const fed0 = toNum(map.FEDFUNDS[0]?.value), fed1 = toNum(map.FEDFUNDS[1]?.value);
@@ -89,7 +80,6 @@ function scoreXAUUSD(map) {
   if (s0 !== null && s1 !== null) s0 > s1 ? (score += 1, pushRule(breakdown,'Sahm Rule','Monte','Stress macro favorable à l’or',1)) : s0 < s1 ? (score -= 1, pushRule(breakdown,'Sahm Rule','Baisse','Moins de demande refuge',-1)) : pushRule(breakdown,'Sahm Rule','Stable','Neutre',0);
   return { score, breakdown, model_note: 'Modèle XAUUSD basé sur Fed, rendements US, inflation et force relative du dollar.' };
 }
-
 function scoreEURUSD(map) {
   let score = 0; const breakdown = [];
   const fed0 = toNum(map.FEDFUNDS[0]?.value), fed1 = toNum(map.FEDFUNDS[1]?.value);
@@ -105,13 +95,26 @@ function scoreEURUSD(map) {
   return { score, breakdown, model_note: 'Modèle EURUSD basé sur la Fed, les rendements US, l’inflation US, les payrolls et le momentum spot EURUSD.' };
 }
 
+function computeAsset(asset, map) {
+  let result = scoreUS30(map);
+  if (asset === 'US100') result = scoreUS100(map);
+  if (asset === 'GER40') result = scoreGER40(map);
+  if (asset === 'XAUUSD') result = scoreXAUUSD(map);
+  if (asset === 'EURUSD') result = scoreEURUSD(map);
+  let bias_label = 'Neutre';
+  let explanation = `Le contexte macro est équilibré pour ${asset}.`;
+  if (result.score >= 3) { bias_label = 'Haussier'; explanation = `Le contexte macro favorise plutôt un biais haussier sur ${asset}.`; }
+  else if (result.score <= -3) { bias_label = 'Baissier'; explanation = `Le contexte macro favorise plutôt un biais baissier sur ${asset}.`; }
+  return { asset, score: result.score, bias_label, explanation, breakdown: result.breakdown, model_note: result.model_note };
+}
+
 exports.handler = async (event) => {
   try {
     const q = event.queryStringParameters || {};
     const apiKey = (q.apiKey || '').trim();
     const asset = (q.asset || 'US30').trim().toUpperCase();
     if (!apiKey) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'API key FRED manquante' }) };
-    if (!['US30','US100','GER40','XAUUSD','EURUSD'].includes(asset)) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Actif non supporté' }) };
+    if (!['ALL','US30','US100','GER40','XAUUSD','EURUSD'].includes(asset)) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Actif non supporté' }) };
 
     const ids = Object.keys(COMMON_SERIES);
     const entries = await Promise.all(ids.map(async id => [id, await getSeries(apiKey, id, 3)]));
@@ -119,21 +122,20 @@ exports.handler = async (event) => {
     const latest = {};
     ids.forEach(id => { latest[id] = map[id][0] ? { date: map[id][0].date, value: map[id][0].value } : null; });
 
-    let result = scoreUS30(map);
-    if (asset === 'US100') result = scoreUS100(map);
-    if (asset === 'GER40') result = scoreGER40(map);
-    if (asset === 'XAUUSD') result = scoreXAUUSD(map);
-    if (asset === 'EURUSD') result = scoreEURUSD(map);
+    if (asset === 'ALL') {
+      const results = ALL_ASSETS.map(a => computeAsset(a, map));
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        body: JSON.stringify({ ok: true, source: 'FRED', asset: 'ALL', latest, results })
+      };
+    }
 
-    let bias_label = 'Neutre';
-    let explanation = `Le contexte macro est équilibré pour ${asset}.`;
-    if (result.score >= 3) { bias_label = 'Haussier'; explanation = `Le contexte macro favorise plutôt un biais haussier sur ${asset}.`; }
-    else if (result.score <= -3) { bias_label = 'Baissier'; explanation = `Le contexte macro favorise plutôt un biais baissier sur ${asset}.`; }
-
+    const result = computeAsset(asset, map);
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      body: JSON.stringify({ ok: true, source: 'FRED', asset, score: result.score, bias_label, explanation, latest, breakdown: result.breakdown, model_note: result.model_note })
+      body: JSON.stringify({ ok: true, source: 'FRED', asset, score: result.score, bias_label: result.bias_label, explanation: result.explanation, latest, breakdown: result.breakdown, model_note: result.model_note })
     };
   } catch (err) {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: err.message || 'Erreur interne' }) };
