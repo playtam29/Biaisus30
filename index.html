@@ -3,39 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test API Trading Economics</title>
+  <title>Test API FRED</title>
   <style>
     body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:24px}
     .card{max-width:920px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
-    input,button,a{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569}
-    input{width:100%;background:#0b1220;color:#fff;margin:10px 0 14px}
+    input,select,button,a{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569}
+    input,select{width:100%;background:#0b1220;color:#fff;margin:10px 0 14px}
     button,a{display:inline-block;background:#38bdf8;color:#082f49;border:0;font-weight:700;cursor:pointer;margin-right:8px;margin-bottom:8px;text-decoration:none}
     pre{background:#020617;color:#cbd5e1;padding:14px;border-radius:12px;overflow:auto;white-space:pre-wrap;min-height:120px}
     .muted{color:#94a3b8}
+    label{display:block;margin-top:10px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Test API Trading Economics</h1>
-    <p class="muted">Version debug v6 sans boutons JS.</p>
-    <input id="apiKey" type="text" placeholder="Colle ta clé API ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-    <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
-    <a href="#" id="openTe">Ouvrir te-calendar</a>
-    <pre id="output">JS chargé v6. Utilise le lien te-calendar.</pre>
+    <h1>Test API FRED</h1>
+    <p class="muted">Version simple pour mobile, basée sur un formulaire HTML natif.</p>
+
+    <form action="/.netlify/functions/fred-series" method="GET">
+      <label for="apiKey">Clé API FRED</label>
+      <input id="apiKey" name="apiKey" type="text" placeholder="Colle ta clé FRED ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+      <label for="seriesId">Série économique</label>
+      <select id="seriesId" name="seriesId">
+        <option value="UNRATE">UNRATE - Chômage US</option>
+        <option value="CPIAUCSL">CPIAUCSL - Inflation CPI</option>
+        <option value="FEDFUNDS">FEDFUNDS - Taux Fed</option>
+        <option value="PAYEMS">PAYEMS - Nonfarm Payrolls</option>
+        <option value="DGS10">DGS10 - Taux 10 ans US</option>
+      </select>
+
+      <label for="limit">Nombre de lignes</label>
+      <input id="limit" name="limit" type="number" value="12" min="1" max="60" />
+
+      <button type="submit">Charger la série</button>
+      <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
+    </form>
+
+    <pre>Exemple conseillé: UNRATE, CPIAUCSL, FEDFUNDS, PAYEMS, DGS10.</pre>
   </div>
-
-  <script>
-    const apiKeyInput = document.getElementById('apiKey');
-    const openTe = document.getElementById('openTe');
-    const output = document.getElementById('output');
-
-    openTe.href = '/.netlify/functions/te-calendar';
-
-    apiKeyInput.addEventListener('input', function(){
-      const key = encodeURIComponent((apiKeyInput.value || '').trim());
-      openTe.href = '/.netlify/functions/te-calendar?apiKey=' + key;
-      output.textContent = key ? 'Lien te-calendar prêt.' : 'Colle la clé puis ouvre te-calendar.';
-    });
-  </script>
 </body>
 </html>
