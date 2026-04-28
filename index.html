@@ -3,44 +3,125 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test API FRED</title>
+  <title>FRED Mobile</title>
   <style>
-    body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:24px}
-    .card{max-width:920px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
-    input,select,button,a{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569}
-    input,select{width:100%;background:#0b1220;color:#fff;margin:10px 0 14px}
+    body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:18px}
+    .card{max-width:920px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:18px}
+    input,select,button,a{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid #475569;box-sizing:border-box}
+    input,select{width:100%;background:#0b1220;color:#fff;margin:8px 0 12px}
     button,a{display:inline-block;background:#38bdf8;color:#082f49;border:0;font-weight:700;cursor:pointer;margin-right:8px;margin-bottom:8px;text-decoration:none}
-    pre{background:#020617;color:#cbd5e1;padding:14px;border-radius:12px;overflow:auto;white-space:pre-wrap;min-height:120px}
     .muted{color:#94a3b8}
-    label{display:block;margin-top:10px}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0}
+    .stat{background:#0b1220;border:1px solid #334155;border-radius:12px;padding:12px}
+    .label{font-size:12px;color:#94a3b8;margin-bottom:6px}
+    .value{font-size:20px;font-weight:700}
+    table{width:100%;border-collapse:collapse;background:#020617;border-radius:12px;overflow:hidden}
+    th,td{padding:10px;border-bottom:1px solid #1e293b;text-align:left;font-size:14px}
+    th{color:#93c5fd}
+    .actions{margin-top:10px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Test API FRED</h1>
-    <p class="muted">Version simple pour mobile, basée sur un formulaire HTML natif.</p>
+    <h1>FRED Mobile</h1>
+    <p class="muted">Version lisible mobile avec résumé et tableau.</p>
 
-    <form action="/.netlify/functions/fred-series" method="GET">
-      <label for="apiKey">Clé API FRED</label>
-      <input id="apiKey" name="apiKey" type="text" placeholder="Colle ta clé FRED ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <label for="apiKey">Clé API FRED</label>
+    <input id="apiKey" type="text" placeholder="Colle ta clé FRED ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
-      <label for="seriesId">Série économique</label>
-      <select id="seriesId" name="seriesId">
-        <option value="UNRATE">UNRATE - Chômage US</option>
-        <option value="CPIAUCSL">CPIAUCSL - Inflation CPI</option>
-        <option value="FEDFUNDS">FEDFUNDS - Taux Fed</option>
-        <option value="PAYEMS">PAYEMS - Nonfarm Payrolls</option>
-        <option value="DGS10">DGS10 - Taux 10 ans US</option>
-      </select>
+    <label for="seriesId">Série économique</label>
+    <select id="seriesId">
+      <option value="UNRATE">UNRATE - Chômage US</option>
+      <option value="CPIAUCSL">CPIAUCSL - Inflation CPI</option>
+      <option value="FEDFUNDS">FEDFUNDS - Taux Fed</option>
+      <option value="PAYEMS">PAYEMS - Nonfarm Payrolls</option>
+      <option value="DGS10">DGS10 - Taux 10 ans US</option>
+    </select>
 
-      <label for="limit">Nombre de lignes</label>
-      <input id="limit" name="limit" type="number" value="12" min="1" max="60" />
+    <label for="limit">Nombre de lignes</label>
+    <input id="limit" type="number" value="12" min="2" max="60" />
 
-      <button type="submit">Charger la série</button>
+    <div class="actions">
+      <button id="loadBtn" type="button">Afficher les données</button>
       <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
-    </form>
+    </div>
 
-    <pre>Exemple conseillé: UNRATE, CPIAUCSL, FEDFUNDS, PAYEMS, DGS10.</pre>
+    <div id="summary" class="grid"></div>
+    <div id="tableWrap"></div>
   </div>
+
+  <script>
+    const apiKeyEl = document.getElementById('apiKey');
+    const seriesIdEl = document.getElementById('seriesId');
+    const limitEl = document.getElementById('limit');
+    const loadBtn = document.getElementById('loadBtn');
+    const summary = document.getElementById('summary');
+    const tableWrap = document.getElementById('tableWrap');
+
+    function esc(v){
+      return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+    }
+
+    function stat(label, value){
+      return `<div class="stat"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
+    }
+
+    function renderTable(rows){
+      const html = ['<table><thead><tr><th>Date</th><th>Valeur</th></tr></thead><tbody>'];
+      rows.forEach(r => html.push(`<tr><td>${esc(r.date)}</td><td>${esc(r.value)}</td></tr>`));
+      html.push('</tbody></table>');
+      return html.join('');
+    }
+
+    async function loadData(){
+      const apiKey = apiKeyEl.value.trim();
+      const seriesId = seriesIdEl.value.trim();
+      const limit = limitEl.value.trim() || '12';
+
+      if(!apiKey){
+        summary.innerHTML = stat('Erreur', 'Ajoute ta clé FRED');
+        tableWrap.innerHTML = '';
+        return;
+      }
+
+      summary.innerHTML = stat('Statut', 'Chargement...');
+      tableWrap.innerHTML = '';
+
+      try{
+        const url = `/.netlify/functions/fred-series?apiKey=${encodeURIComponent(apiKey)}&seriesId=${encodeURIComponent(seriesId)}&limit=${encodeURIComponent(limit)}&ts=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        const data = await res.json();
+
+        if(!res.ok){
+          summary.innerHTML = stat('Erreur', data.error || ('HTTP ' + res.status));
+          return;
+        }
+
+        const obs = Array.isArray(data.observations) ? data.observations : [];
+        const latest = obs[0] || {};
+        const previous = obs[1] || {};
+        let delta = 'n/a';
+        const a = parseFloat(latest.value);
+        const b = parseFloat(previous.value);
+        if(!Number.isNaN(a) && !Number.isNaN(b)) delta = (a - b).toFixed(2);
+
+        summary.innerHTML = [
+          stat('Série', data.series_id || seriesId),
+          stat('Dernière valeur', latest.value || 'n/a'),
+          stat('Date', latest.date || 'n/a'),
+          stat('Variation', delta),
+          stat('Fréquence', data.frequency || 'n/a'),
+          stat('Unités', data.units || 'n/a')
+        ].join('');
+
+        tableWrap.innerHTML = `<h3>${esc(data.title || seriesId)}</h3>` + renderTable(obs);
+      }catch(err){
+        summary.innerHTML = stat('Erreur', err.message || 'Erreur inconnue');
+        tableWrap.innerHTML = '';
+      }
+    }
+
+    loadBtn.addEventListener('click', loadData);
+  </script>
 </body>
 </html>
