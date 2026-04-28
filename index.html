@@ -17,51 +17,25 @@
 <body>
   <div class="card">
     <h1>Test API Trading Economics</h1>
-    <p class="muted">Version debug v5 ultra simple.</p>
+    <p class="muted">Version debug v6 sans boutons JS.</p>
     <input id="apiKey" type="text" placeholder="Colle ta clé API ici" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-    <button type="button" onclick="testHealth()">Tester la fonction</button>
-    <button type="button" onclick="loadData()">Charger les données</button>
     <a href="/.netlify/functions/health" target="_blank" rel="noopener">Ouvrir health</a>
-    <pre id="output">JS chargé v5. En attente...</pre>
+    <a href="#" id="openTe">Ouvrir te-calendar</a>
+    <pre id="output">JS chargé v6. Utilise le lien te-calendar.</pre>
   </div>
 
   <script>
-    function setOut(msg){ document.getElementById('output').textContent = msg; }
-    window.onerror = function(msg, src, line, col){ setOut('Erreur JS: ' + msg + ' @' + line + ':' + col); };
+    const apiKeyInput = document.getElementById('apiKey');
+    const openTe = document.getElementById('openTe');
+    const output = document.getElementById('output');
 
-    async function testHealth(){
-      setOut('Bouton health cliqué');
-      try {
-        const r = await fetch('/.netlify/functions/health?ts=' + Date.now(), { cache: 'no-store' });
-        const t = await r.text();
-        setOut('HTTP ' + r.status + '
-' + t);
-      } catch (e) {
-        setOut('Erreur health: ' + e.message);
-      }
-    }
+    openTe.href = '/.netlify/functions/te-calendar';
 
-    async function loadData(){
-      setOut('Bouton load cliqué');
-      try {
-        const apiKey = (document.getElementById('apiKey').value || '').trim();
-        if (!apiKey) {
-          setOut('Ajoute d'abord ta clé API.');
-          return;
-        }
-        setOut('Chargement...');
-        const r = await fetch('/.netlify/functions/te-calendar?ts=' + Date.now(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: apiKey })
-        });
-        const t = await r.text();
-        setOut('HTTP ' + r.status + '
-' + t);
-      } catch (e) {
-        setOut('Erreur load: ' + e.message);
-      }
-    }
+    apiKeyInput.addEventListener('input', function(){
+      const key = encodeURIComponent((apiKeyInput.value || '').trim());
+      openTe.href = '/.netlify/functions/te-calendar?apiKey=' + key;
+      output.textContent = key ? 'Lien te-calendar prêt.' : 'Colle la clé puis ouvre te-calendar.';
+    });
   </script>
 </body>
 </html>
